@@ -1,7 +1,7 @@
 安装
 ----------
 ```
-go get github.com/xdapp/xdapp-sdk-go
+go get github.com/Tiaoyu/xdapp-sdk-go
 ```
 
 rpc服务
@@ -26,7 +26,7 @@ go mod tidy
 ----------
 日志库默认使用zap (v1.1.0开始)，或者也可以使用自定义 Logger
 
-参考默认logger如何自定义它 https://github.com/xdapp/xdapp-sdk-go/blob/master/pkg/register/logger.go
+参考默认logger如何自定义它 https://github.com/Tiaoyu/xdapp-sdk-go/blob/master/pkg/register/logger.go
 
 自定义logger, 只要实现以下 interface就可以替换默认日志
 
@@ -46,7 +46,7 @@ reg.SetLogger(xxx)
 * 国内生产环境 `service-prod.xdapp.com:8900`
 * 海外生产环境 `service-gcp.xdapp.com:8900`
 * 开发测试环境 `service-dev.xdapp.com:8100`
-* 本地测试环境 `127.0.0.1:8062`，需自己启动本地开发工具，see https://github.com/xdapp/xdapp-local-dev
+* 本地测试环境 `127.0.0.1:8062`，需自己启动本地开发工具，see https://github.com/Tiaoyu/xdapp-local-dev
 
 > 除本地开发环境不是SSL的其它都是SSL的
 
@@ -67,9 +67,9 @@ Example
 package main
 
 import (
-  "github.com/xdapp/xdapp-sdk-go/pkg/register"
-  "github.com/xdapp/xdapp-sdk-go/pkg/types"
-  "github.com/xdapp/xdapp-sdk-go/service"
+  "github.com/Tiaoyu/xdapp-sdk-go/pkg/register"
+  "github.com/Tiaoyu/xdapp-sdk-go/pkg/types"
+  "github.com/Tiaoyu/xdapp-sdk-go/service"
 )
 
 // 测试注册服务
@@ -125,8 +125,8 @@ func main() {
 package main
 
 import (
-  "github.com/xdapp/xdapp-sdk-go/pkg/register"
-  "github.com/xdapp/xdapp-sdk-go/service"
+  "github.com/Tiaoyu/xdapp-sdk-go/pkg/register"
+  "github.com/Tiaoyu/xdapp-sdk-go/service"
 )
 
 // 测试注册服务
@@ -229,8 +229,8 @@ require('app').service.test.api.v1.TextCheck.HelloWorld()
 package main
 
 import (
-	"github.com/xdapp/xdapp-sdk-go/pkg/middleware"
-	"github.com/xdapp/xdapp-sdk-go/pkg/register"
+	"github.com/Tiaoyu/xdapp-sdk-go/pkg/middleware"
+	"github.com/Tiaoyu/xdapp-sdk-go/pkg/register"
 	"google.golang.org/grpc"
 )
 

@@ -1,16 +1,16 @@
 package main
 
 import (
-	"github.com/xdapp/xdapp-sdk-go/pkg/middleware"
-	"github.com/xdapp/xdapp-sdk-go/pkg/register"
+	"github.com/Tiaoyu/xdapp-sdk-go/pkg/middleware"
+	"github.com/Tiaoyu/xdapp-sdk-go/pkg/register"
 	"google.golang.org/grpc"
 )
 
 func main() {
 	reg, err := register.New(&register.Config{
-		App:     "test", // 请修改对应的App缩写
-		Name:    "test", // 请填入服务名，若协议Package为xdapp.api.v1则填入xdapp即可
-		Key:     "test", // 从服务管理中添加服务后获取
+		App:   "test", // 请修改对应的App缩写
+		Name:  "test", // 请填入服务名，若协议Package为xdapp.api.v1则填入xdapp即可
+		Key:   "test", // 从服务管理中添加服务后获取
 		Debug: false,
 	})
 

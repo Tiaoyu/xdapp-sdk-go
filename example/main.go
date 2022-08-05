@@ -1,16 +1,16 @@
 package main
 
 import (
-	"github.com/xdapp/xdapp-sdk-go/pkg/register"
-	"github.com/xdapp/xdapp-sdk-go/service"
+	"github.com/Tiaoyu/xdapp-sdk-go/pkg/register"
+	"github.com/Tiaoyu/xdapp-sdk-go/service"
 )
 
 // 测试注册服务
 func main() {
 	reg, err := register.New(&register.Config{
-		App: "demo",
-		Name: "gm",
-		Key: "123456",
+		App:   "demo",
+		Name:  "gm",
+		Key:   "123456",
 		Debug: false,
 	})
 	if err != nil {
@@ -23,7 +23,7 @@ func main() {
 	 * 等同于
 	 * register.AddFunction("gm_hello", func() string {return "hello world"})
 	 */
-	reg.AddWebFunction("hello", func() string {return "hello world"})
+	reg.AddWebFunction("hello", func() string { return "hello world" })
 
 	/**
 	 * 注册一个前端页面可访问的rpc方法 （其中 test 为服务前缀，请求方法为 test_xxx）

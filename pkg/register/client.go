@@ -9,14 +9,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Tiaoyu/xdapp-sdk-go/pkg/types"
 	"github.com/leesper/tao"
-	"github.com/xdapp/xdapp-sdk-go/pkg/types"
 )
 
 var (
 	request        Request
-	requestId      *tao.AtomicInt64 		// 请求id 原子递增
-	receiveBuff    *safeReceiveBuff			// 收到缓冲区
+	requestId      *tao.AtomicInt64 // 请求id 原子递增
+	receiveBuff    *safeReceiveBuff // 收到缓冲区
 	receiveChanMap = make(map[string]chan interface{})
 )
 
@@ -24,8 +24,9 @@ type safeReceiveBuff struct {
 	mu     sync.Mutex
 	bufMap map[string][]byte
 }
+
 var (
-	tlsConf = &tls.Config{ InsecureSkipVerify: true }
+	tlsConf = &tls.Config{InsecureSkipVerify: true}
 )
 
 func (reg *register) NewClient(host string, port int, ssl bool) *tao.ClientConn {
@@ -35,7 +36,8 @@ func (reg *register) NewClient(host string, port int, ssl bool) *tao.ClientConn 
 	}
 
 	onMessage := tao.OnMessageOption(func(msg tao.Message, c tao.WriteCloser) {
-		req, ok := msg.(Request); if !ok {
+		req, ok := msg.(Request)
+		if !ok {
 			err := types.ErrTCPParseRequest
 			reg.lg.Error(err.Error())
 		}
@@ -125,7 +127,7 @@ func (c *clientConn) sendRpcReceive(flag byte, header Header, body []byte) error
 		receiveBuff.mu.Unlock()
 
 		// 30秒后清理数据
-		d := time.Now().Add(types.RpcClearBufTime*time.Second)
+		d := time.Now().Add(types.RpcClearBufTime * time.Second)
 		c.RunAt(d, func(i time.Time, closer tao.WriteCloser) {
 			receiveBuff.mu.Lock()
 			delete(receiveBuff.bufMap, reqId)
