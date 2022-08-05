@@ -13,26 +13,26 @@ import (
 
 	"github.com/hprose/hprose-golang/rpc"
 	"github.com/leesper/tao"
-	"github.com/xdapp/xdapp-sdk-go/pkg/types"
-	"github.com/xdapp/xdapp-sdk-go/service"
 	"go.uber.org/zap"
+	"github.com/Tiaoyu/xdapp-sdk-go/pkg/types"
+	"github.com/Tiaoyu/xdapp-sdk-go/service"
 )
 
 type Config struct {
-	*types.Server									// 自定义服务参数
-	Env				 string 						// 环境 dev、prod、global 不传则读Server配置
+	*types.Server        // 自定义服务参数
+	Env           string // 环境 dev、prod、global 不传则读Server配置
 
-	App              string   						// 游戏简称
-	Name             string   						// 游戏名字
-	Key              string   						// 服务器秘钥
-	Version          int       						// 服务器版本
-	Debug            bool     `json:"debug"`  		// debug模式
-	PackageMaxLength int      						// tcp最大长度 默认2M
-	LogOutputs       []string `json:"log_outputs"`	// 输出格式 默认 []string{"stdout"} 需要落地到debug.log eg: []string{"stdout", "debug.log"}
+	App              string   // 游戏简称
+	Name             string   // 游戏名字
+	Key              string   // 服务器秘钥
+	Version          int      // 服务器版本
+	Debug            bool     `json:"debug"` // debug模式
+	PackageMaxLength int      // tcp最大长度 默认2M
+	LogOutputs       []string `json:"log_outputs"` // 输出格式 默认 []string{"stdout"} 需要落地到debug.log eg: []string{"stdout", "debug.log"}
 
-	loggerMu      *sync.RWMutex
-	logger        *zap.Logger
-	loggerConfig  *zap.Config
+	loggerMu     *sync.RWMutex
+	logger       *zap.Logger
+	loggerConfig *zap.Config
 }
 
 type clientConn struct {
@@ -148,7 +148,10 @@ func (reg *register) ConnectTo(host string, port int, ssl bool) {
 
 	msg := fmt.Sprintf("[tcp]连接 host:%s port:%d", host, port)
 	reg.lg.Info(msg)
-
+	reg.HproseService.AddMissingMethod(
+		func(name string, args []reflect.Value, context rpc.Context) (result []reflect.Value, err error) {
+			return nil, errors.New("The method '" + name + "' is not implemented.")
+		})
 	conn := reg.NewClient(host, port, ssl)
 	reg.conn = &clientConn{conn}
 	reg.conn.Start()
@@ -157,10 +160,7 @@ func (reg *register) ConnectTo(host string, port int, ssl bool) {
 	funcArr := reg.GetHproseAddedFunc()
 	reg.lg.Info("已增加的rpc方法: " + strings.Join(funcArr, ","))
 
-	reg.HproseService.AddMissingMethod(
-		func(name string, args []reflect.Value, context rpc.Context) (result []reflect.Value, err error) {
-			return nil, errors.New("The method '" + name + "' is not implemented.")
-		})
+
 
 	notifier := make(chan os.Signal, 1)
 	signal.Notify(notifier, syscall.SIGINT, syscall.SIGTERM)
