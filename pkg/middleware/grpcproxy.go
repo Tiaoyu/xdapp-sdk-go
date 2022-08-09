@@ -209,6 +209,7 @@ func (m *GRPCProxyMiddleware) requestProxy(context context.Context, methodName s
 	if len(params) > 0 {
 		data, err = json.Marshal(params[0])
 		if err != nil {
+			println(err.Error())
 			return nil, err
 		}
 	}
@@ -235,6 +236,7 @@ func (m *GRPCProxyMiddleware) parseInputData(data []byte) (string, []interface{}
 
 	reader := io.NewDecoder(data)
 	reader.Simple(false)
+	reader.MapType = io.MapTypeSIMap
 
 	tag = reader.NextByte()
 	if tag == io.TagCall {
