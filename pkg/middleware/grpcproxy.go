@@ -163,18 +163,21 @@ func (m *GRPCProxyMiddleware) OnReceiveResponse(message proto.Message) {
 
 	sb := &strings.Builder{}
 	en := io.NewEncoder(sb)
-	en.Encode(io.TagResult)
+	en.Simple(false)
+
+	en.WriteTag(io.TagResult)
 	en.Encode(response)
-	en.Encode(io.TagEnd)
+	en.WriteTag(io.TagEnd)
 	m.lastResp = en.Bytes()
 }
 
 func (m *GRPCProxyMiddleware) parseRespErr(err error) []byte {
 	sb := &strings.Builder{}
 	en := io.NewEncoder(sb)
-	en.Encode(io.TagError)
+	en.Simple(false)
+	en.WriteTag(io.TagError)
 	en.Encode(err.Error())
-	en.Encode(io.TagEnd)
+	en.WriteTag(io.TagEnd)
 	return en.Bytes()
 }
 

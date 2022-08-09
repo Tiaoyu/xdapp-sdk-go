@@ -86,6 +86,7 @@ func rpcEncode(name string, args []reflect.Value) []byte {
 func rpcDecode(data []byte) (interface{}, error) {
 	r := io.GetDecoder().ResetBytes(data)
 	r.Simple(false)
+	r.MapType = io.MapTypeSIMap
 	tag := r.NextByte()
 	switch tag {
 	case io.TagResult:
