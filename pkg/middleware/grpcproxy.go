@@ -5,21 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/hprose/hprose-golang/v3/rpc/core"
-	"strings"
-	"time"
-
 	"github.com/Tiaoyu/xdapp-sdk-go/pkg/register"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/hprose/hprose-golang/v3/io"
-	"github.com/hprose/hprose-golang/v3/rpc"
+	"github.com/hprose/hprose-golang/v3/rpc/core"
 	"github.com/jhump/protoreflect/desc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"strings"
 )
 
 const (
@@ -37,9 +34,6 @@ type GRPCProxyMiddleware struct {
 	resolver      jsonpb.AnyResolver
 	respFormatter jsonpb.Marshaler
 	lastResp      []byte
-
-	Timeout time.Duration
-	client  *core.Client
 }
 
 func New(endpoint string, descFileNames []string, opts ...grpc.DialOption) (*GRPCProxyMiddleware, error) {
@@ -65,7 +59,6 @@ func New(endpoint string, descFileNames []string, opts ...grpc.DialOption) (*GRP
 			EmitDefaults: true,
 			AnyResolver:  r,
 		},
-		client: core.NewClient(endpoint),
 	}
 
 	mid.regFunctions()
@@ -95,35 +88,6 @@ func (m *GRPCProxyMiddleware) InvokeHandler(ctx context.Context, name string, ar
 	return nil, nil
 }
 
-func NewGRPCProxyMiddleware(endpoint string, descFileNames []string, opts ...grpc.DialOption) (*GRPCProxyMiddleware, error) {
-	descSource, err := grpcurl.DescriptorSourceFromProtoSets(descFileNames...)
-	if err != nil {
-		return nil, err
-	}
-
-	buf := bytes.NewBuffer(nil)
-	nc, err := grpc.Dial(endpoint, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	r := grpcurl.AnyResolverFromDescriptorSource(descSource)
-	mid := &GRPCProxyMiddleware{
-		descSource: descSource,
-		nc:         nc,
-		buf:        buf,
-		resolver:   r,
-		respFormatter: jsonpb.Marshaler{
-			EnumsAsInts:  true,
-			EmitDefaults: true,
-			AnyResolver:  r,
-		},
-	}
-
-	mid.regFunctions()
-	return mid, nil
-}
-
 func (m *GRPCProxyMiddleware) regFunctions() {
 	services, _ := m.descSource.ListServices()
 	for _, srvName := range services {
@@ -138,8 +102,7 @@ func (m *GRPCProxyMiddleware) regFunctions() {
 	}
 }
 
-func (m *GRPCProxyMiddleware) OnResolveMethod(descriptor *desc.MethodDescriptor) {
-}
+func (m *GRPCProxyMiddleware) OnResolveMethod(descriptor *desc.MethodDescriptor) {}
 
 func (m *GRPCProxyMiddleware) OnSendHeaders(md metadata.MD) {
 }
@@ -185,24 +148,6 @@ func (m *GRPCProxyMiddleware) OnReceiveTrailers(status *status.Status, md metada
 	if status.Code() != codes.OK {
 		m.lastResp = m.parseRespErr(status.Err())
 	}
-}
-
-func (m *GRPCProxyMiddleware) Handler(data []byte, ctx context.Context, next rpc.NextIOHandler) ([]byte, error) {
-	method, params, err := m.parseInputData(data)
-	if err != nil {
-		return nil, err
-	}
-
-	if strings.HasPrefix(method, "sys_") {
-		return next(ctx, data)
-	}
-
-	header := make([]string, 0)
-	header = append(header, fmt.Sprintf("%s: %d", AdminIdHeaderKey, ctx.Value("adminId")))
-	header = append(header, fmt.Sprintf("%s: %d", AppIdHeaderKey, ctx.Value("appId")))
-	header = append(header, fmt.Sprintf("%s: %d", ServiceIdHeaderKey, ctx.Value("serviceId")))
-	header = append(header, fmt.Sprintf("%s: %d", RequestIdHeaderKey, ctx.Value("requestId")))
-	return m.requestProxy(context.Background(), m.parseGRPCMethod(method), params, header)
 }
 
 func (m *GRPCProxyMiddleware) requestProxy(context context.Context, methodName string, params []interface{}, header []string) ([]byte, error) {
