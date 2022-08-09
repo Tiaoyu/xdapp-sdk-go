@@ -5,14 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hprose/hprose-golang/v3/rpc/core"
 	"strings"
+	"time"
 
 	"github.com/Tiaoyu/xdapp-sdk-go/pkg/register"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/hprose/hprose-golang/io"
-	"github.com/hprose/hprose-golang/rpc"
+	"github.com/hprose/hprose-golang/v3/io"
+	"github.com/hprose/hprose-golang/v3/rpc"
 	"github.com/jhump/protoreflect/desc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,6 +37,62 @@ type GRPCProxyMiddleware struct {
 	resolver      jsonpb.AnyResolver
 	respFormatter jsonpb.Marshaler
 	lastResp      []byte
+
+	Timeout time.Duration
+	client  *core.Client
+}
+
+func New(endpoint string, descFileNames []string, opts ...grpc.DialOption) (*GRPCProxyMiddleware, error) {
+	descSource, err := grpcurl.DescriptorSourceFromProtoSets(descFileNames...)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(nil)
+	nc, err := grpc.Dial(endpoint, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	r := grpcurl.AnyResolverFromDescriptorSource(descSource)
+	mid := &GRPCProxyMiddleware{
+		descSource: descSource,
+		nc:         nc,
+		buf:        buf,
+		resolver:   r,
+		respFormatter: jsonpb.Marshaler{
+			EnumsAsInts:  true,
+			EmitDefaults: true,
+			AnyResolver:  r,
+		},
+		client: core.NewClient(endpoint),
+	}
+
+	mid.regFunctions()
+	return mid, nil
+}
+
+func (m *GRPCProxyMiddleware) IOHandler(ctx context.Context, request []byte, next core.NextIOHandler) (response []byte, err error) {
+	method, params, err := m.parseInputData(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(method, "sys_") {
+		return next(ctx, request)
+	}
+
+	header := make([]string, 0)
+	header = append(header, fmt.Sprintf("%s: %d", AdminIdHeaderKey, ctx.Value("adminId")))
+	header = append(header, fmt.Sprintf("%s: %d", AppIdHeaderKey, ctx.Value("appId")))
+	header = append(header, fmt.Sprintf("%s: %d", ServiceIdHeaderKey, ctx.Value("serviceId")))
+	header = append(header, fmt.Sprintf("%s: %d", RequestIdHeaderKey, ctx.Value("requestId")))
+
+	return m.requestProxy(context.Background(), m.parseGRPCMethod(method), params, header)
+}
+
+func (m *GRPCProxyMiddleware) InvokeHandler(ctx context.Context, name string, args []interface{}, next core.NextInvokeHandler) (result []interface{}, err error) {
+	return nil, nil
 }
 
 func NewGRPCProxyMiddleware(endpoint string, descFileNames []string, opts ...grpc.DialOption) (*GRPCProxyMiddleware, error) {
@@ -103,19 +161,21 @@ func (m *GRPCProxyMiddleware) OnReceiveResponse(message proto.Message) {
 		return
 	}
 
-	writer := io.NewWriter(true)
-	writer.WriteByte(io.TagResult)
-	writer.Serialize(response)
-	writer.WriteByte(io.TagEnd)
-	m.lastResp = writer.Bytes()
+	sb := &strings.Builder{}
+	en := io.NewEncoder(sb)
+	en.Encode(io.TagResult)
+	en.Encode(response)
+	en.Encode(io.TagEnd)
+	m.lastResp = en.Bytes()
 }
 
 func (m *GRPCProxyMiddleware) parseRespErr(err error) []byte {
-	writer := io.NewWriter(true)
-	writer.WriteByte(io.TagError)
-	writer.WriteString(err.Error())
-	writer.WriteByte(io.TagEnd)
-	return writer.Bytes()
+	sb := &strings.Builder{}
+	en := io.NewEncoder(sb)
+	en.Encode(io.TagError)
+	en.Encode(err.Error())
+	en.Encode(io.TagEnd)
+	return en.Bytes()
 }
 
 func (m *GRPCProxyMiddleware) OnReceiveTrailers(status *status.Status, md metadata.MD) {
@@ -124,25 +184,21 @@ func (m *GRPCProxyMiddleware) OnReceiveTrailers(status *status.Status, md metada
 	}
 }
 
-func (m *GRPCProxyMiddleware) Handler(
-	data []byte,
-	ctx rpc.Context,
-	next rpc.NextFilterHandler) ([]byte, error) {
-
+func (m *GRPCProxyMiddleware) Handler(data []byte, ctx context.Context, next rpc.NextIOHandler) ([]byte, error) {
 	method, params, err := m.parseInputData(data)
 	if err != nil {
 		return nil, err
 	}
 
 	if strings.HasPrefix(method, "sys_") {
-		return next(data, ctx)
+		return next(ctx, data)
 	}
 
 	header := make([]string, 0)
-	header = append(header, fmt.Sprintf("%s: %d", AdminIdHeaderKey, ctx.GetUInt("adminId")))
-	header = append(header, fmt.Sprintf("%s: %d", AppIdHeaderKey, ctx.GetUInt("appId")))
-	header = append(header, fmt.Sprintf("%s: %d", ServiceIdHeaderKey, ctx.GetUInt("serviceId")))
-	header = append(header, fmt.Sprintf("%s: %d", RequestIdHeaderKey, ctx.GetUInt("requestId")))
+	header = append(header, fmt.Sprintf("%s: %d", AdminIdHeaderKey, ctx.Value("adminId")))
+	header = append(header, fmt.Sprintf("%s: %d", AppIdHeaderKey, ctx.Value("appId")))
+	header = append(header, fmt.Sprintf("%s: %d", ServiceIdHeaderKey, ctx.Value("serviceId")))
+	header = append(header, fmt.Sprintf("%s: %d", RequestIdHeaderKey, ctx.Value("requestId")))
 	return m.requestProxy(context.Background(), m.parseGRPCMethod(method), params, header)
 }
 
@@ -171,22 +227,22 @@ func (m *GRPCProxyMiddleware) requestProxy(context context.Context, methodName s
 }
 
 func (m *GRPCProxyMiddleware) parseInputData(data []byte) (string, []interface{}, error) {
-	var method string
-	var params []interface{}
+	var (
+		tag    byte
+		method string
+		params []interface{}
+	)
 
-	reader := io.NewReader(data, false)
-	reader.JSONCompatible = true
-	tag, _ := reader.ReadByte()
+	reader := io.NewDecoder(data)
+	reader.Simple(false)
+
+	tag = reader.NextByte()
 	if tag == io.TagCall {
-		method = reader.ReadString()
-		tag, _ = reader.ReadByte()
+		reader.Decode(&method)
+		tag = reader.NextByte()
 		if tag == io.TagList {
 			reader.Reset()
-			count := reader.ReadCount()
-			params = make([]interface{}, count)
-			for i := 0; i < count; i++ {
-				reader.Unserialize(&params[i])
-			}
+			reader.Decode(&params, tag)
 		}
 	}
 

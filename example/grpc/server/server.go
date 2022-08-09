@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	port = ":7777"
+	port = ":8900"
 )
 
 type UserService struct{}

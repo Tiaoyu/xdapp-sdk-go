@@ -1,6 +1,7 @@
 package register
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -11,11 +12,11 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/hprose/hprose-golang/rpc"
-	"github.com/leesper/tao"
-	"go.uber.org/zap"
 	"github.com/Tiaoyu/xdapp-sdk-go/pkg/types"
 	"github.com/Tiaoyu/xdapp-sdk-go/service"
+	"github.com/hprose/hprose-golang/v3/rpc/core"
+	"github.com/leesper/tao"
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -45,7 +46,7 @@ type register struct {
 	conn          *clientConn                 // tcp客户端连接
 	regSuccess    bool                        // 注册成功标志
 	serviceData   map[interface{}]interface{} // console 注册成功返回的页面服务器信息
-	HproseService *rpc.TCPService             // hprose service
+	HproseService *core.Service               // hprose service
 }
 
 var (
@@ -88,7 +89,7 @@ func New(cfg *Config) (*register, error) {
 
 	lg = cfg.Logger()
 	config = cfg
-	hproseService = rpc.NewTCPService()
+	hproseService = core.NewService()
 
 	return &register{
 		cfg:           cfg,
@@ -149,7 +150,7 @@ func (reg *register) ConnectTo(host string, port int, ssl bool) {
 	msg := fmt.Sprintf("[tcp]连接 host:%s port:%d", host, port)
 	reg.lg.Info(msg)
 	reg.HproseService.AddMissingMethod(
-		func(name string, args []reflect.Value, context rpc.Context) (result []reflect.Value, err error) {
+		func(ctx context.Context, name string, args []interface{}) (result []interface{}, err error) {
 			return nil, errors.New("The method '" + name + "' is not implemented.")
 		})
 	conn := reg.NewClient(host, port, ssl)
@@ -159,8 +160,6 @@ func (reg *register) ConnectTo(host string, port int, ssl bool) {
 
 	funcArr := reg.GetHproseAddedFunc()
 	reg.lg.Info("已增加的rpc方法: " + strings.Join(funcArr, ","))
-
-
 
 	notifier := make(chan os.Signal, 1)
 	signal.Notify(notifier, syscall.SIGINT, syscall.SIGTERM)

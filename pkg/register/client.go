@@ -60,7 +60,7 @@ func (reg *register) NewClient(host string, port int, ssl bool) *tao.ClientConn 
 			return
 		}
 		go func() {
-			rs := reg.RpcHandle(header, body)
+			rs, _ := reg.RpcHandle(header, body)
 			err := transportRpcRequest(c, flag, ver, header, context, rs)
 			if err != nil {
 				err = fmt.Errorf("[rpc转发] 发送数据异常 %w", err)
